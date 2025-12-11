@@ -1,0 +1,2480 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>📱 Smartphone Gesture Demo</title>
+
+    <!-- Socket.IO (Voice Phonemes) -->
+    <script src="socket.io.min.js"></script>
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
+            min-height: 100vh;
+            color: white;
+            overflow: hidden;
+        }
+
+        .container {
+            display: flex;
+            height: 100vh;
+        }
+
+        /* Left Panel */
+        .control-panel {
+            width: 320px;
+            padding: 30px;
+            background: rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(10px);
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            overflow-y: auto;
+        }
+
+        .panel-header {
+            text-align: center;
+            padding-bottom: 20px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .panel-header h1 {
+            font-size: 1.5em;
+            margin-bottom: 8px;
+            background: linear-gradient(90deg, #7bed9f, #70a1ff);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .panel-header p {
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 13px;
+        }
+
+        /* Status */
+        .status-group {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 15px;
+        }
+
+        .status-group h3 {
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: rgba(255, 255, 255, 0.5);
+            margin-bottom: 12px;
+        }
+
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 0;
+        }
+
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #ff4757;
+            transition: all 0.3s;
+        }
+
+        .status-dot.active {
+            background: #7bed9f;
+            box-shadow: 0 0 10px rgba(123, 237, 159, 0.5);
+        }
+
+        .status-dot.loading {
+            background: #ffa502;
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.5;
+            }
+        }
+
+        /* Gesture Display */
+        .gesture-display {
+            background: rgba(123, 237, 159, 0.1);
+            border: 1px solid rgba(123, 237, 159, 0.3);
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .gesture-icon {
+            font-size: 48px;
+            margin-bottom: 10px;
+        }
+
+        .gesture-name {
+            font-size: 18px;
+            font-weight: 600;
+            color: #7bed9f;
+        }
+
+        .gesture-description {
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.6);
+            margin-top: 5px;
+        }
+
+        /* Legend */
+        .gesture-legend {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px;
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 8px;
+            font-size: 13px;
+        }
+
+        .legend-icon {
+            width: 36px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            font-size: 18px;
+        }
+
+        .legend-text {
+            flex: 1;
+        }
+
+        .legend-action {
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 11px;
+        }
+
+        /* Settings Panel */
+        .settings-panel {
+            background: rgba(255, 165, 2, 0.1);
+            border: 1px solid rgba(255, 165, 2, 0.3);
+            border-radius: 12px;
+            padding: 15px;
+            margin-top: 15px;
+        }
+
+        .settings-panel h3 {
+            font-size: 13px;
+            color: #ffa502;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin: 0;
+        }
+
+        .settings-content {
+            margin-top: 15px;
+        }
+
+        .setting-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 12px;
+        }
+
+        .setting-item label {
+            flex: 1;
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        .setting-item input[type="range"] {
+            width: 80px;
+            accent-color: #ffa502;
+        }
+
+        .setting-item span {
+            width: 40px;
+            text-align: right;
+            font-size: 12px;
+            color: #ffa502;
+            font-family: monospace;
+        }
+
+        /* Buttons */
+        .btn-group {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .btn {
+            padding: 12px 20px;
+            border: none;
+            border-radius: 25px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(90deg, #7bed9f, #70a1ff);
+            color: #1a1a1a;
+            font-weight: 600;
+        }
+
+        .btn-primary:hover {
+            transform: scale(1.02);
+            box-shadow: 0 5px 20px rgba(123, 237, 159, 0.3);
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.15);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* Phone Simulator */
+        .phone-area {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 40px;
+        }
+
+        .phone-frame {
+            width: 375px;
+            height: 812px;
+            background: #1a1a1a;
+            border-radius: 50px;
+            padding: 15px;
+            box-shadow: 0 0 0 3px #333, 0 0 0 6px #1a1a1a, 0 30px 60px rgba(0, 0, 0, 0.5);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .phone-notch {
+            position: absolute;
+            top: 15px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 150px;
+            height: 30px;
+            background: #1a1a1a;
+            border-radius: 0 0 20px 20px;
+            z-index: 100;
+        }
+
+        .phone-screen {
+            width: 100%;
+            height: 100%;
+            background: #000;
+            border-radius: 40px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .app-container {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .app-page {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(180deg, #1e3c72 0%, #2a5298 100%);
+            transition: transform 0.3s ease-out;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .app-page.hidden {
+            transform: translateX(100%);
+        }
+
+        .app-page.back {
+            transform: translateX(-30%);
+            opacity: 0.5;
+        }
+
+        .app-header {
+            padding: 60px 20px 20px;
+            background: rgba(0, 0, 0, 0.2);
+        }
+
+        .app-title {
+            font-size: 28px;
+            font-weight: 700;
+        }
+
+        .app-subtitle {
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 14px;
+            margin-top: 5px;
+        }
+
+        .back-button {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            color: #7bed9f;
+            font-size: 16px;
+            margin-bottom: 15px;
+            cursor: pointer;
+        }
+
+        .app-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            scroll-behavior: smooth;
+        }
+
+        .app-content::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        .app-content::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 2px;
+        }
+
+        .card-list {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .card {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 16px;
+            padding: 20px;
+            cursor: pointer;
+            transition: all 0.3s;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .card:hover,
+        .card.gaze-active {
+            background: rgba(255, 255, 255, 0.15);
+            transform: scale(1.02);
+            border-color: #7bed9f;
+        }
+
+        .card.triggered {
+            background: #7bed9f !important;
+            transform: scale(0.95);
+        }
+
+        .card.triggered * {
+            color: #1e3c72 !important;
+        }
+
+        .card-icon {
+            font-size: 32px;
+            margin-bottom: 10px;
+        }
+
+        .card-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+
+        .card-desc {
+            font-size: 13px;
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        .detail-content {
+            padding: 20px;
+        }
+
+        .detail-image {
+            width: 100%;
+            height: 200px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 16px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 64px;
+        }
+
+        .detail-title {
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 10px;
+        }
+
+        .detail-text {
+            font-size: 15px;
+            line-height: 1.6;
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+        .touch-indicator {
+            position: absolute;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: rgba(123, 237, 159, 0.3);
+            border: 2px solid #7bed9f;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.2s;
+            z-index: 1000;
+        }
+
+        .touch-indicator.active {
+            opacity: 1;
+        }
+
+        .touch-indicator.scrolling {
+            background: rgba(112, 161, 255, 0.3);
+            border-color: #70a1ff;
+        }
+
+        .touch-indicator.slider-active {
+            background: rgba(255, 165, 2, 0.3);
+            border-color: #ffa502;
+            width: 80px;
+            /* Wider to indicate horizontal lock */
+            height: 40px;
+            border-radius: 20px;
+        }
+
+        .gesture-arrow {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 48px;
+            opacity: 0;
+            transition: opacity 0.2s;
+            pointer-events: none;
+            z-index: 1001;
+        }
+
+        .gesture-arrow.visible {
+            opacity: 1;
+        }
+
+        /* Right Panel */
+        .info-panel {
+            width: 280px;
+            padding: 30px;
+            background: rgba(0, 0, 0, 0.2);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .info-title {
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: rgba(255, 255, 255, 0.5);
+            margin-bottom: 15px;
+        }
+
+        .info-text {
+            font-size: 15px;
+            line-height: 1.8;
+            color: rgba(255, 255, 255, 0.8);
+            margin-bottom: 20px;
+        }
+
+        .info-highlight {
+            background: rgba(123, 237, 159, 0.2);
+            border-left: 3px solid #7bed9f;
+            padding: 15px;
+            border-radius: 0 8px 8px 0;
+            margin: 15px 0;
+        }
+
+        .back-link {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            color: rgba(255, 255, 255, 0.6);
+            text-decoration: none;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            z-index: 100;
+        }
+
+        .back-link:hover {
+            color: white;
+        }
+
+        /* Cursor */
+        #head-cursor {
+            position: fixed;
+            width: 24px;
+            height: 24px;
+            background: rgba(123, 237, 159, 0.5);
+            border: 2px solid #7bed9f;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            z-index: 9998;
+            display: none;
+            transition: left 0.05s, top 0.05s;
+            box-shadow: 0 0 15px rgba(123, 237, 159, 0.4);
+        }
+
+        #head-cursor.clicking {
+            background: rgba(255, 71, 87, 0.7);
+            border-color: #ff4757;
+            transform: translate(-50%, -50%) scale(1.3);
+        }
+
+        /* ========== CONTROL CENTER ========== */
+        .control-center {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 300px;
+            background: rgba(20, 20, 30, 0.95);
+            backdrop-filter: blur(20px);
+            border-radius: 0 0 24px 24px;
+            padding: 50px 20px 20px;
+            transform: translateY(-100%);
+            transition: transform 0.3s ease-out;
+            z-index: 1500;
+        }
+
+        .control-center.open {
+            transform: translateY(0);
+        }
+
+        .cc-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+        }
+
+        .cc-tile {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .cc-tile.active {
+            background: #5856d6;
+        }
+
+        .cc-tile-icon {
+            font-size: 24px;
+        }
+
+        .cc-tile-label {
+            font-size: 12px;
+            opacity: 0.8;
+        }
+
+        .cc-slider-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .cc-slider-row input {
+            flex: 1;
+            accent-color: white;
+        }
+
+        .cc-slider-icon {
+            font-size: 20px;
+        }
+
+        /* ========== HOME INDICATOR ========== */
+        .home-indicator {
+            position: absolute;
+            bottom: 8px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 120px;
+            height: 5px;
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 3px;
+            z-index: 1200;
+        }
+
+        .home-indicator.active {
+            background: white;
+        }
+
+        /* ========== CONTEXT MENU ========== */
+        .context-menu {
+            position: absolute;
+            background: rgba(40, 40, 50, 0.95);
+            backdrop-filter: blur(20px);
+            border-radius: 14px;
+            min-width: 180px;
+            padding: 8px 0;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+            z-index: 2000;
+            display: none;
+        }
+
+        .context-menu.visible {
+            display: block;
+        }
+
+        .context-menu-item {
+            padding: 12px 16px;
+            font-size: 14px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            transition: background 0.15s;
+        }
+
+        .context-menu-item:hover,
+        .context-menu-item.gaze-active {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .context-menu-item.danger {
+            color: #ff4757;
+        }
+
+        .context-menu-divider {
+            height: 1px;
+            background: rgba(255, 255, 255, 0.1);
+            margin: 4px 0;
+        }
+
+        /* ========== MUSIC PLAYER ========== */
+        .music-now-playing {
+            text-align: center;
+            padding: 20px;
+        }
+
+        .album-art {
+            width: 180px;
+            height: 180px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 16px;
+            margin: 0 auto 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 64px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        }
+
+        .song-title {
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .song-artist {
+            font-size: 14px;
+            opacity: 0.6;
+            margin-top: 4px;
+        }
+
+        .progress-bar {
+            height: 4px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 2px;
+            margin: 20px 0;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            width: 35%;
+            background: #7bed9f;
+            border-radius: 2px;
+        }
+
+        .music-controls {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 30px;
+        }
+
+        .music-btn {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            background: rgba(255, 255, 255, 0.1);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .music-btn.play {
+            width: 64px;
+            height: 64px;
+            background: #7bed9f;
+            font-size: 28px;
+        }
+
+        .music-btn:hover,
+        .music-btn.gaze-active {
+            transform: scale(1.1);
+        }
+
+        .volume-control {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 0 20px;
+            margin-top: 20px;
+        }
+
+        .volume-control input {
+            flex: 1;
+            accent-color: #7bed9f;
+        }
+
+        .playlist {
+            padding: 10px 0;
+        }
+
+        .playlist-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 20px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .playlist-item:hover,
+        .playlist-item.gaze-active,
+        .playlist-item.active {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .playlist-item.active {
+            border-left: 3px solid #7bed9f;
+        }
+
+        .playlist-thumb {
+            width: 44px;
+            height: 44px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .playlist-info {
+            flex: 1;
+        }
+
+        .playlist-title {
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .playlist-artist {
+            font-size: 12px;
+            opacity: 0.5;
+        }
+
+        /* ========== MESSAGES ========== */
+        .conversation-list {
+            padding: 10px 0;
+        }
+
+        .conversation-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 16px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .conversation-item:hover,
+        .conversation-item.gaze-active {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .conversation-avatar {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #74b9ff, #0984e3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+        }
+
+        .conversation-info {
+            flex: 1;
+        }
+
+        .conversation-name {
+            font-size: 15px;
+            font-weight: 600;
+        }
+
+        .conversation-preview {
+            font-size: 13px;
+            opacity: 0.6;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 180px;
+        }
+
+        .conversation-time {
+            font-size: 12px;
+            opacity: 0.4;
+        }
+
+        .chat-container {
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        .chat-messages {
+            flex: 1;
+            padding: 16px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .chat-bubble {
+            max-width: 75%;
+            padding: 10px 14px;
+            border-radius: 18px;
+            font-size: 14px;
+            line-height: 1.4;
+            position: relative;
+            transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+            /* Elastic bounce */
+        }
+
+        .chat-bubble.pressing {
+            transform: scale(0.9);
+            filter: brightness(0.9);
+        }
+
+        .chat-bubble.received {
+            background: rgba(255, 255, 255, 0.15);
+            align-self: flex-start;
+            border-bottom-left-radius: 4px;
+        }
+
+        .chat-bubble.sent {
+            background: #0984e3;
+            align-self: flex-end;
+            border-bottom-right-radius: 4px;
+        }
+
+        .chat-bubble.gaze-active {
+            box-shadow: 0 0 0 2px #7bed9f;
+        }
+
+        .chat-input-area {
+            padding: 12px 16px;
+            background: rgba(0, 0, 0, 0.2);
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .chat-input {
+            flex: 1;
+            background: rgba(255, 255, 255, 0.1);
+            border: none;
+            border-radius: 20px;
+            padding: 10px 16px;
+            color: white;
+            font-size: 14px;
+            transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        .chat-input.pressing {
+            transform: scale(0.95);
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .chat-send-btn {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: #0984e3;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+        }
+
+        /* ========== SETTINGS ========== */
+        .settings-section {
+            margin-bottom: 20px;
+        }
+
+        .settings-section-title {
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            opacity: 0.5;
+            padding: 0 16px 8px;
+        }
+
+        .settings-item {
+            display: flex;
+            align-items: center;
+            padding: 14px 16px;
+            background: rgba(255, 255, 255, 0.05);
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .settings-item:first-child {
+            border-radius: 12px 12px 0 0;
+        }
+
+        .settings-item:last-child {
+            border-radius: 0 0 12px 12px;
+        }
+
+        .settings-item:only-child {
+            border-radius: 12px;
+        }
+
+        .settings-item+.settings-item {
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .settings-item:hover,
+        .settings-item.gaze-active {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .settings-icon {
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 12px;
+            font-size: 18px;
+        }
+
+        .settings-label {
+            flex: 1;
+            font-size: 15px;
+        }
+
+        .settings-value {
+            font-size: 14px;
+            opacity: 0.5;
+            margin-right: 8px;
+        }
+
+        .settings-arrow {
+            opacity: 0.3;
+        }
+
+        .toggle-switch {
+            width: 50px;
+            height: 30px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 15px;
+            position: relative;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .toggle-switch.on {
+            background: #7bed9f;
+        }
+
+        .toggle-switch::after {
+            content: '';
+            position: absolute;
+            width: 26px;
+            height: 26px;
+            background: white;
+            border-radius: 50%;
+            top: 2px;
+            left: 2px;
+            transition: transform 0.2s;
+        }
+
+        .toggle-switch.on::after {
+            transform: translateX(20px);
+        }
+
+        /* ========== PHOTOS ========== */
+        .photo-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 2px;
+            padding: 2px;
+        }
+
+        .photo-item {
+            width: 100%;
+            aspect-ratio: 1;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+            overflow: hidden;
+            position: relative;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 32px;
+            transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        .photo-item.pressing {
+            transform: scale(0.9);
+            filter: brightness(0.8);
+        }
+
+        .photo-item:hover,
+        .photo-item.gaze-active {
+            transform: scale(0.95);
+            box-shadow: 0 0 0 2px #7bed9f;
+        }
+
+        .photo-viewer {
+            position: absolute;
+            inset: 0;
+            background: black;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1100;
+        }
+
+        .photo-full {
+            max-width: 90%;
+            max-height: 80%;
+            font-size: 120px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .photo-nav {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 50px;
+            height: 50px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            cursor: pointer;
+        }
+
+        .photo-nav.prev {
+            left: 10px;
+        }
+
+        .photo-nav.next {
+            right: 10px;
+        }
+
+        .photo-nav:hover,
+        .photo-nav.gaze-active {
+            background: rgba(255, 255, 255, 0.4);
+        }
+
+        .photo-close {
+            position: absolute;
+            top: 50px;
+            right: 16px;
+            font-size: 14px;
+            opacity: 0.7;
+            cursor: pointer;
+        }
+
+        /* ========== EDGE SWIPE HINTS ========== */
+        .edge-hint {
+            position: absolute;
+            background: rgba(123, 237, 159, 0.3);
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.2s;
+            z-index: 1100;
+        }
+
+        .edge-hint.visible {
+            opacity: 1;
+        }
+
+        .edge-hint.bottom {
+            bottom: 0;
+            left: 20%;
+            right: 20%;
+            height: 30px;
+            border-radius: 15px 15px 0 0;
+        }
+
+        .edge-hint.top {
+            top: 0;
+            left: 20%;
+            right: 20%;
+            height: 30px;
+            border-radius: 0 0 15px 15px;
+        }
+
+        .edge-hint.left {
+            left: 0;
+            top: 20%;
+            bottom: 20%;
+            width: 20px;
+            border-radius: 0 10px 10px 0;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="head-cursor"></div>
+
+    <a href="gaze_demo.html" class="back-link">← Back to Demo</a>
+
+    <div class="container">
+        <!-- Left Panel -->
+        <div class="control-panel">
+            <div class="panel-header">
+                <h1>📱 Smartphone Gestures</h1>
+                <p>Control with head movement + mouth</p>
+            </div>
+
+            <!-- Status -->
+            <div class="status-group">
+                <h3>Status</h3>
+                <div class="status-item">
+                    <span class="status-dot active" id="head-status"></span>
+                    <span id="head-status-text">Head Tracking</span>
+                </div>
+                <div class="status-item">
+                    <span class="status-dot" id="voice-status"></span>
+                    <span>Voice Input</span>
+                </div>
+                <div class="status-item">
+                    <span class="status-dot" id="mouth-status"></span>
+                    <span>Mouth Click</span>
+                </div>
+            </div>
+
+            <!-- Current Gesture -->
+            <div class="gesture-display">
+                <div class="gesture-icon" id="gesture-icon">👆</div>
+                <div class="gesture-name" id="gesture-name">Waiting</div>
+                <div class="gesture-description" id="gesture-desc">Open mouth to start</div>
+            </div>
+
+            <!-- Legend -->
+            <div class="gesture-legend">
+                <div class="legend-item">
+                    <div class="legend-icon">👆</div>
+                    <div class="legend-text">
+                        <div>Tap (Select)</div>
+                        <div class="legend-action">Quick mouth open &amp; close</div>
+                    </div>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-icon">📜</div>
+                    <div class="legend-text">
+                        <div>Scroll</div>
+                        <div class="legend-action">Mouth open + look up/down</div>
+                    </div>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-icon">👈</div>
+                    <div class="legend-text">
+                        <div>Go Back</div>
+                        <div class="legend-action">Mouth open + quick look left</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Settings Panel -->
+            <div class="settings-panel" id="settings-panel">
+                <h3 onclick="toggleSettings()">⚙️ Gesture Settings <span id="settings-toggle">▼</span></h3>
+                <div class="settings-content" id="settings-content" style="display: none;">
+                    <div class="setting-item">
+                        <label>Swipe Distance (px)</label>
+                        <input type="range" id="swipe-threshold" min="20" max="200" value="30">
+                        <span id="swipe-threshold-val">30</span>
+                    </div>
+                    <div class="setting-item">
+                        <label>Swipe Speed (px/s)</label>
+                        <input type="range" id="swipe-speed" min="100" max="800" value="240">
+                        <span id="swipe-speed-val">240</span>
+                    </div>
+                    <div class="setting-item">
+                        <label>Mouth Threshold</label>
+                        <input type="range" id="mouth-threshold" min="0.20" max="1.00" step="0.05" value="0.75">
+                        <span id="mouth-threshold-val">0.75</span>
+                    </div>
+                    <div class="setting-item">
+                        <label>Scroll Sensitivity</label>
+                        <input type="range" id="scroll-sens" min="1" max="5" step="0.5" value="3">
+                        <span id="scroll-sens-val">3</span>
+                    </div>
+                    <div class="setting-item">
+                        <label>Tap Max Duration (ms)</label>
+                        <input type="range" id="tap-duration" min="100" max="800" value="600">
+                        <span id="tap-duration-val">600</span>
+                    </div>
+                    <button class="btn btn-secondary" onclick="resetSettings()">↺ Reset Defaults</button>
+                </div>
+            </div>
+
+            <!-- Buttons -->
+            <div class="btn-group">
+                <button class="btn btn-primary" id="start-btn" disabled="">✅ Tracking Active</button>
+                <button class="btn btn-secondary" id="calibrate-btn">⚙️ Head Cal (Alt+H)</button>
+                <button class="btn btn-secondary" id="mouth-cal-btn">👄 Mouth Cal (Alt+M)</button>
+                <button class="btn btn-secondary" id="dir-cal-btn"
+                    style="background: rgba(123, 237, 159, 0.2); border-color: #7bed9f;">🧭 Dir Cal (Alt+D)</button>
+            </div>
+        </div>
+
+        <!-- Phone Simulator -->
+        <div class="phone-area">
+            <div class="phone-frame">
+                <div class="phone-notch"></div>
+                <div class="phone-screen">
+                    <div class="app-container" id="app-container">
+                        <!-- Main Page -->
+                        <div class="app-page" id="page-main">
+                            <div class="app-header">
+                                <div class="app-title">Services</div>
+                                <div class="app-subtitle">Look at an item to select</div>
+                            </div>
+                            <div class="app-content" id="main-scroll">
+                                <div class="card-list">
+                                    <div class="card" data-page="music">
+                                        <div class="card-icon">🎵</div>
+                                        <div class="card-title">Music</div>
+                                        <div class="card-desc">Play your favorite songs</div>
+                                    </div>
+                                    <div class="card" data-page="messages">
+                                        <div class="card-icon">💬</div>
+                                        <div class="card-title">Messages</div>
+                                        <div class="card-desc">Send text with voice</div>
+                                    </div>
+                                    <div class="card" data-page="photos">
+                                        <div class="card-icon">📸</div>
+                                        <div class="card-title">Photos</div>
+                                        <div class="card-desc">View & share memories</div>
+                                    </div>
+                                    <div class="card" data-page="settings">
+                                        <div class="card-icon">⚙️</div>
+                                        <div class="card-title">Settings</div>
+                                        <div class="card-desc">Customize preferences</div>
+                                    </div>
+                                    <div class="card" data-page="detail-1">
+                                        <div class="card-icon">📞</div>
+                                        <div class="card-title">Emergency Call</div>
+                                        <div class="card-desc">Contact caregiver</div>
+                                    </div>
+                                    <div class="card" data-page="detail-4">
+                                        <div class="card-icon">📺</div>
+                                        <div class="card-title">Videos</div>
+                                        <div class="card-desc">YouTube, Netflix</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Detail Page -->
+                        <div class="app-page hidden" id="page-detail">
+                            <div class="app-header">
+                                <div class="back-button" id="back-btn">← Go Back</div>
+                                <div class="app-title" id="detail-title">Watch Videos</div>
+                            </div>
+                            <div class="app-content">
+                                <div class="detail-content">
+                                    <div class="detail-image" id="detail-icon">📺</div>
+                                    <div class="detail-title" id="detail-heading">Watch Videos</div>
+                                    <div class="detail-text" id="detail-desc">YouTube, Netflix streaming.</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- ========== MUSIC APP ========== -->
+                        <div class="app-page hidden" id="page-music">
+                            <div class="app-header">
+                                <div class="back-button" data-back>← Back</div>
+                                <div class="app-title">Music</div>
+                            </div>
+                            <div class="app-content">
+                                <div class="music-now-playing">
+                                    <div class="album-art">🎵</div>
+                                    <div class="song-title" id="current-song">Blinding Lights</div>
+                                    <div class="song-artist">The Weeknd</div>
+                                    <div class="progress-bar">
+                                        <div class="progress-fill"></div>
+                                    </div>
+                                    <div class="music-controls">
+                                        <div class="music-btn" data-action="prev">⏮</div>
+                                        <div class="music-btn play" data-action="play" id="play-btn">▶</div>
+                                        <div class="music-btn" data-action="next">⏭</div>
+                                    </div>
+                                    <div class="volume-control">
+                                        <span>🔈</span>
+                                        <input type="range" min="0" max="100" value="70" id="volume-slider">
+                                        <span>🔊</span>
+                                    </div>
+                                </div>
+                                <div class="playlist">
+                                    <div class="playlist-item active" data-song="1">
+                                        <div class="playlist-thumb">🎵</div>
+                                        <div class="playlist-info">
+                                            <div class="playlist-title">Blinding Lights</div>
+                                            <div class="playlist-artist">The Weeknd</div>
+                                        </div>
+                                    </div>
+                                    <div class="playlist-item" data-song="2">
+                                        <div class="playlist-thumb">🎸</div>
+                                        <div class="playlist-info">
+                                            <div class="playlist-title">Shape of You</div>
+                                            <div class="playlist-artist">Ed Sheeran</div>
+                                        </div>
+                                    </div>
+                                    <div class="playlist-item" data-song="3">
+                                        <div class="playlist-thumb">🎹</div>
+                                        <div class="playlist-info">
+                                            <div class="playlist-title">Dance Monkey</div>
+                                            <div class="playlist-artist">Tones and I</div>
+                                        </div>
+                                    </div>
+                                    <div class="playlist-item" data-song="4">
+                                        <div class="playlist-thumb">🎤</div>
+                                        <div class="playlist-info">
+                                            <div class="playlist-title">Dynamite</div>
+                                            <div class="playlist-artist">BTS</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- ========== MESSAGES APP ========== -->
+                        <div class="app-page hidden" id="page-messages">
+                            <div class="app-header">
+                                <div class="back-button" data-back>← Back</div>
+                                <div class="app-title">Messages</div>
+                            </div>
+                            <div class="app-content">
+                                <div class="conversation-list">
+                                    <div class="conversation-item" data-chat="mom">
+                                        <div class="conversation-avatar">👩</div>
+                                        <div class="conversation-info">
+                                            <div class="conversation-name">Mom</div>
+                                            <div class="conversation-preview">How are you feeling today?</div>
+                                        </div>
+                                        <div class="conversation-time">2m</div>
+                                    </div>
+                                    <div class="conversation-item" data-chat="doctor">
+                                        <div class="conversation-avatar">👨‍⚕️</div>
+                                        <div class="conversation-info">
+                                            <div class="conversation-name">Dr. Smith</div>
+                                            <div class="conversation-preview">Your appointment is confirmed</div>
+                                        </div>
+                                        <div class="conversation-time">1h</div>
+                                    </div>
+                                    <div class="conversation-item" data-chat="friend">
+                                        <div class="conversation-avatar">👦</div>
+                                        <div class="conversation-info">
+                                            <div class="conversation-name">Alex</div>
+                                            <div class="conversation-preview">See you tomorrow!</div>
+                                        </div>
+                                        <div class="conversation-time">3h</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- ========== CHAT PAGE ========== -->
+                        <div class="app-page hidden" id="page-chat">
+                            <div class="app-header">
+                                <div class="back-button" data-back>← Back</div>
+                                <div class="app-title" id="chat-title">Chat</div>
+                            </div>
+                            <div class="chat-container">
+                                <div class="chat-messages" id="chat-messages">
+                                    <div class="chat-bubble received">How are you feeling today?</div>
+                                    <div class="chat-bubble sent">I'm doing well, thanks!</div>
+                                    <div class="chat-bubble received">That's great to hear! 😊</div>
+                                    <div class="chat-bubble sent">Yes, the new therapy is helping a lot.</div>
+                                    <div class="chat-bubble received">I'll visit you this weekend.</div>
+                                </div>
+                                <div class="chat-input-area">
+                                    <input type="text" class="chat-input" placeholder="Type a message..."
+                                        id="chat-input">
+                                    <div class="chat-send-btn">➤</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- ========== SETTINGS APP ========== -->
+                        <div class="app-page hidden" id="page-settings">
+                            <div class="app-header">
+                                <div class="back-button" data-back>← Back</div>
+                                <div class="app-title">Settings</div>
+                            </div>
+                            <div class="app-content">
+                                <div class="settings-section">
+                                    <div class="settings-section-title">General</div>
+                                    <div class="settings-item" data-setting="wifi">
+                                        <div class="settings-icon" style="background:#007aff">📶</div>
+                                        <div class="settings-label">Wi-Fi</div>
+                                        <div class="settings-value">Connected</div>
+                                        <div class="settings-arrow">›</div>
+                                    </div>
+                                    <div class="settings-item" data-setting="bluetooth">
+                                        <div class="settings-icon" style="background:#007aff">🔵</div>
+                                        <div class="settings-label">Bluetooth</div>
+                                        <div class="toggle-switch on" data-toggle="bluetooth"></div>
+                                    </div>
+                                    <div class="settings-item" data-setting="notifications">
+                                        <div class="settings-icon" style="background:#ff3b30">🔔</div>
+                                        <div class="settings-label">Notifications</div>
+                                        <div class="settings-arrow">›</div>
+                                    </div>
+                                </div>
+                                <div class="settings-section">
+                                    <div class="settings-section-title">Display</div>
+                                    <div class="settings-item">
+                                        <div class="settings-icon" style="background:#ff9500">☀️</div>
+                                        <div class="settings-label">Brightness</div>
+                                        <input type="range" min="0" max="100" value="80"
+                                            style="width:100px;accent-color:#ff9500">
+                                    </div>
+                                    <div class="settings-item">
+                                        <div class="settings-icon" style="background:#5856d6">🌙</div>
+                                        <div class="settings-label">Dark Mode</div>
+                                        <div class="toggle-switch on" data-toggle="darkmode"></div>
+                                    </div>
+                                    <div class="settings-item">
+                                        <div class="settings-icon" style="background:#34c759">🔤</div>
+                                        <div class="settings-label">Text Size</div>
+                                        <div class="settings-value">Medium</div>
+                                        <div class="settings-arrow">›</div>
+                                    </div>
+                                </div>
+                                <div class="settings-section">
+                                    <div class="settings-section-title">Accessibility</div>
+                                    <div class="settings-item">
+                                        <div class="settings-icon" style="background:#007aff">👁️</div>
+                                        <div class="settings-label">Gaze Sensitivity</div>
+                                        <div class="settings-arrow">›</div>
+                                    </div>
+                                    <div class="settings-item">
+                                        <div class="settings-icon" style="background:#ff2d55">🎤</div>
+                                        <div class="settings-label">Voice Control</div>
+                                        <div class="toggle-switch" data-toggle="voice"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- ========== PHOTOS APP ========== -->
+                        <div class="app-page hidden" id="page-photos">
+                            <div class="app-header">
+                                <div class="back-button" data-back>← Back</div>
+                                <div class="app-title">Photos</div>
+                            </div>
+                            <div class="app-content" style="padding:0">
+                                <div class="photo-grid" id="photo-grid">
+                                    <div class="photo-item" data-photo="0">🏞️</div>
+                                    <div class="photo-item" data-photo="1">🌅</div>
+                                    <div class="photo-item" data-photo="2">🏔️</div>
+                                    <div class="photo-item" data-photo="3">🌊</div>
+                                    <div class="photo-item" data-photo="4">🌸</div>
+                                    <div class="photo-item" data-photo="5">🌻</div>
+                                    <div class="photo-item" data-photo="6">🐕</div>
+                                    <div class="photo-item" data-photo="7">🐱</div>
+                                    <div class="photo-item" data-photo="8">🎂</div>
+                                    <div class="photo-item" data-photo="9">🎄</div>
+                                    <div class="photo-item" data-photo="10">👨‍👩‍👧</div>
+                                    <div class="photo-item" data-photo="11">🎊</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- ========== PHOTO VIEWER ========== -->
+                        <div class="app-page hidden" id="page-photo-viewer">
+                            <div class="photo-viewer">
+                                <div class="photo-close" data-back>✕ Close</div>
+                                <div class="photo-nav prev" data-nav="prev">‹</div>
+                                <div class="photo-full" id="photo-full">🏞️</div>
+                                <div class="photo-nav next" data-nav="next">›</div>
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <!-- Control Center -->
+                    <div class="control-center" id="control-center">
+                        <div class="cc-grid">
+                            <div class="cc-tile" data-cc="wifi">
+                                <div class="cc-tile-icon">📶</div>
+                                <div class="cc-tile-label">Wi-Fi</div>
+                            </div>
+                            <div class="cc-tile active" data-cc="bluetooth">
+                                <div class="cc-tile-icon">🔵</div>
+                                <div class="cc-tile-label">Bluetooth</div>
+                            </div>
+                            <div class="cc-tile" data-cc="airplane">
+                                <div class="cc-tile-icon">✈️</div>
+                                <div class="cc-tile-label">Airplane</div>
+                            </div>
+                            <div class="cc-tile active" data-cc="dnd">
+                                <div class="cc-tile-icon">🌙</div>
+                                <div class="cc-tile-label">Do Not Disturb</div>
+                            </div>
+                        </div>
+                        <div class="cc-slider-row">
+                            <span class="cc-slider-icon">🔅</span>
+                            <input type="range" min="0" max="100" value="80">
+                            <span class="cc-slider-icon">🔆</span>
+                        </div>
+                        <div class="cc-slider-row">
+                            <span class="cc-slider-icon">🔈</span>
+                            <input type="range" min="0" max="100" value="60">
+                            <span class="cc-slider-icon">🔊</span>
+                        </div>
+                    </div>
+
+                    <!-- Home Indicator -->
+                    <div class="home-indicator" id="home-indicator"></div>
+
+                    <!-- Edge Hints -->
+                    <div class="edge-hint bottom" id="edge-bottom"></div>
+                    <div class="edge-hint top" id="edge-top"></div>
+                    <div class="edge-hint left" id="edge-left"></div>
+
+                    <div class="touch-indicator" id="touch-indicator"></div>
+                    <div class="gesture-arrow" id="gesture-arrow">←</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Panel -->
+        <div class="info-panel">
+            <div class="info-title">How to Use</div>
+            <div class="info-text">
+                Control a <strong>smartphone</strong> using
+                <strong>head movement</strong> and <strong>mouth opening</strong>.
+            </div>
+
+            <div class="info-highlight">
+                <strong>💡 Core Concept</strong><br>
+                Mouth open = Screen touch<br>
+                Head gaze = Finger position
+            </div>
+
+            <div class="info-text">
+                1. <strong>Select:</strong> Look at card, quick mouth open/close<br><br>
+                2. <strong>Scroll:</strong> Mouth open + look up/down<br><br>
+                3. <strong>Back:</strong> Mouth open + quick look left
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="mouth_direction_calibration.js"></script>
+
+    <!-- Settings JavaScript -->
+    <script>
+        let currentMouthThreshold = 0.75;
+
+        function toggleSettings() {
+            const content = document.getElementById('settings-content');
+            const toggle = document.getElementById('settings-toggle');
+            if (content.style.display === 'none') {
+                content.style.display = 'block';
+                toggle.textContent = '▲';
+            } else {
+                content.style.display = 'none';
+                toggle.textContent = '▼';
+            }
+        }
+
+        function initSettings() {
+            const mappings = {
+                'swipe-threshold': 'SWIPE_THRESHOLD',
+                'swipe-speed': 'SWIPE_SPEED_THRESHOLD',
+                'scroll-sens': 'SCROLL_SENSITIVITY',
+                'tap-duration': 'TAP_MAX_DURATION'
+            };
+
+            for (const [id, configKey] of Object.entries(mappings)) {
+                const el = document.getElementById(id);
+                if (el) {
+                    el.addEventListener('input', (e) => {
+                        document.getElementById(id + '-val').textContent = e.target.value;
+                        if (typeof GestureController !== 'undefined') {
+                            GestureController.setConfig(configKey, parseFloat(e.target.value));
+                        }
+                    });
+                }
+            }
+
+            const mouthThreshold = document.getElementById('mouth-threshold');
+            if (mouthThreshold) {
+                mouthThreshold.addEventListener('input', (e) => {
+                    document.getElementById('mouth-threshold-val').textContent = e.target.value;
+                    currentMouthThreshold = parseFloat(e.target.value);
+                });
+            }
+        }
+
+        function resetSettings() {
+            const defaults = {
+                'swipe-threshold': 30,
+                'swipe-speed': 240,
+                'mouth-threshold': 0.75,
+                'scroll-sens': 3,
+                'tap-duration': 600
+            };
+
+            for (const [id, val] of Object.entries(defaults)) {
+                const el = document.getElementById(id);
+                if (el) {
+                    el.value = val;
+                    document.getElementById(id + '-val').textContent = val;
+                }
+            }
+
+            currentMouthThreshold = 0.75;
+            if (typeof GestureController !== 'undefined') {
+                GestureController.setConfig('SWIPE_THRESHOLD', 30);
+                GestureController.setConfig('SWIPE_SPEED_THRESHOLD', 240);
+                GestureController.setConfig('SCROLL_SENSITIVITY', 3);
+                GestureController.setConfig('TAP_MAX_DURATION', 600);
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', initSettings);
+    </script>
+
+    <script type="module">
+        import HeadTracker from './head_tracker.js';
+        window.HeadTracker = HeadTracker;
+    </script>
+    <script src="head_calibration.js"></script>
+    <script src="mouth_calibration.js"></script>
+    <script src="gesture_controller.js"></script>
+
+    <script type="module">
+        // ============ App State ============
+        const AppState = {
+            currentPage: 'main',
+            pageHistory: [],
+            isTrackingActive: false,
+            controlCenterOpen: false,
+            currentPhotoIndex: 0,
+            isPlaying: false,
+            currentSong: 0,
+            contextMenuVisible: false,
+            activeSlider: null,
+            sliderStartValue: 0,
+            sliderStartX: 0,
+            pressingElement: null,
+            clipboardContent: ''
+        };
+
+        const photos = ['🏞️', '🌅', '🏔️', '🌊', '🌸', '🌻', '🐕', '🐱', '🎂', '🎄', '👨‍👩‍👧', '🎊'];
+        const songs = [
+            { title: 'Blinding Lights', artist: 'The Weeknd', icon: '🎵' },
+            { title: 'Shape of You', artist: 'Ed Sheeran', icon: '🎸' },
+            { title: 'Dance Monkey', artist: 'Tones and I', icon: '🎹' },
+            { title: 'Dynamite', artist: 'BTS', icon: '🎤' }
+        ];
+
+        const chatData = {
+            mom: {
+                name: 'Mom', avatar: '👩', messages: [
+                    { text: 'How are you feeling today?', sent: false },
+                    { text: "I'm doing well, thanks!", sent: true },
+                    { text: "That's great to hear! 😊", sent: false }
+                ]
+            },
+            doctor: {
+                name: 'Dr. Smith', avatar: '👨‍⚕️', messages: [
+                    { text: 'Your appointment is confirmed for Monday.', sent: false },
+                    { text: 'Thank you, doctor!', sent: true }
+                ]
+            },
+            friend: {
+                name: 'Alex', avatar: '👦', messages: [
+                    { text: "Hey! How's it going?", sent: false },
+                    { text: 'Pretty good! How about you?', sent: true },
+                    { text: 'See you tomorrow!', sent: false }
+                ]
+            }
+        };
+
+        const cardData = {
+            'detail-1': { icon: '📞', title: 'Emergency Call', desc: 'Contact your caregiver immediately.' },
+            'detail-4': { icon: '📺', title: 'Watch Videos', desc: 'YouTube, Netflix streaming.' }
+        };
+
+        // ============ Elements ============
+        const cursor = document.getElementById('head-cursor');
+        const gestureIcon = document.getElementById('gesture-icon');
+        const gestureName = document.getElementById('gesture-name');
+        const gestureDesc = document.getElementById('gesture-desc');
+        const touchIndicator = document.getElementById('touch-indicator');
+        const gestureArrow = document.getElementById('gesture-arrow');
+        const mainScroll = document.getElementById('main-scroll');
+        const startBtn = document.getElementById('start-btn');
+        const calibrateBtn = document.getElementById('calibrate-btn');
+        const mouthCalBtn = document.getElementById('mouth-cal-btn');
+        const dirCalBtn = document.getElementById('dir-cal-btn');
+        const phoneScreen = document.querySelector('.phone-screen');
+        const controlCenter = document.getElementById('control-center');
+        const homeIndicator = document.getElementById('home-indicator');
+
+        let gazePosition = { x: 0, y: 0 };
+        let gestureStartY = 0;
+        let gestureStartX = 0;
+
+        // ============ Gesture Display ============
+        function updateGestureDisplay(gesture, desc) {
+            const icons = { 'idle': '👆', 'touching': '✋', 'tap': '👆', 'scroll': '📜', 'swipeLeft': '👈', 'swipeRight': '👉', 'swipeUp': '👆', 'swipeDown': '👇', 'home': '🏠', 'controlCenter': '⚙️' };
+            const names = { 'idle': 'Waiting', 'touching': 'Touching...', 'tap': 'Tap!', 'scroll': 'Scrolling', 'swipeLeft': 'Back', 'swipeRight': 'Forward', 'swipeUp': 'Home', 'swipeDown': 'Control Center', 'home': 'Home', 'controlCenter': 'Control Center' };
+            gestureIcon.textContent = icons[gesture] || '👆';
+            gestureName.textContent = names[gesture] || gesture;
+            gestureDesc.textContent = desc || '';
+        }
+
+        // ============ Touch Indicator ============
+        function showTouchIndicator(x, y, type = 'default') {
+            const rect = phoneScreen.getBoundingClientRect();
+            if (x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom) {
+                touchIndicator.style.left = (x - rect.left) + 'px';
+                touchIndicator.style.top = (y - rect.top) + 'px';
+                touchIndicator.classList.add('active');
+                touchIndicator.classList.toggle('scrolling', type === 'scroll');
+            }
+        }
+
+        function hideTouchIndicator() { touchIndicator.classList.remove('active'); }
+
+        function showGestureArrow(dir) {
+            gestureArrow.textContent = { left: '←', right: '→', up: '↑', down: '↓' }[dir] || '';
+            gestureArrow.classList.add('visible');
+            setTimeout(() => gestureArrow.classList.remove('visible'), 500);
+        }
+
+        // ============ Edge Detection ============
+        function getEdgeZone(x, y) {
+            const rect = phoneScreen.getBoundingClientRect();
+            const relX = x - rect.left;
+            const relY = y - rect.top;
+            if (relY > rect.height - 40) return 'bottom';
+            if (relY < 40) return 'top';
+            if (relX < 25) return 'left';
+            return null;
+        }
+
+        function showEdgeHint(zone) {
+            document.querySelectorAll('.edge-hint').forEach(e => e.classList.remove('visible'));
+            if (zone) {
+                const hint = document.getElementById('edge-' + zone);
+                if (hint) hint.classList.add('visible');
+            }
+        }
+
+        // ============ Control Center ============
+        function toggleControlCenter(open) {
+            AppState.controlCenterOpen = open ?? !AppState.controlCenterOpen;
+            controlCenter.classList.toggle('open', AppState.controlCenterOpen);
+            if (AppState.controlCenterOpen) {
+                updateGestureDisplay('controlCenter', 'Swipe up to close');
+            }
+        }
+
+        // ============ Navigation ============
+        function hideAllPages() {
+            document.querySelectorAll('.app-page').forEach(p => {
+                p.classList.add('hidden');
+                p.classList.remove('back');
+            });
+        }
+
+        function showPage(pageId) {
+            const page = document.getElementById('page-' + pageId);
+            if (page) {
+                page.classList.remove('hidden');
+            }
+        }
+
+        function navigateTo(pageId) {
+            // Close control center if open
+            if (AppState.controlCenterOpen) {
+                toggleControlCenter(false);
+                return;
+            }
+
+            // Save current page to history
+            if (AppState.currentPage !== pageId) {
+                AppState.pageHistory.push(AppState.currentPage);
+            }
+
+            // Hide all and show target
+            hideAllPages();
+
+            if (pageId === 'main') {
+                showPage('main');
+                AppState.currentPage = 'main';
+                AppState.pageHistory = [];
+            } else if (pageId.startsWith('detail-')) {
+                const data = cardData[pageId];
+                if (data) {
+                    document.getElementById('detail-title').textContent = data.title;
+                    document.getElementById('detail-icon').textContent = data.icon;
+                    document.getElementById('detail-heading').textContent = data.title;
+                    document.getElementById('detail-desc').textContent = data.desc;
+                }
+                showPage('detail');
+                document.getElementById('page-main').classList.add('back');
+                AppState.currentPage = 'detail';
+            } else {
+                showPage(pageId);
+                document.getElementById('page-main').classList.add('back');
+                AppState.currentPage = pageId;
+            }
+        }
+
+        function navigateBack() {
+            if (AppState.controlCenterOpen) {
+                toggleControlCenter(false);
+                return;
+            }
+
+            if (AppState.pageHistory.length > 0) {
+                const prevPage = AppState.pageHistory.pop();
+                hideAllPages();
+                showPage(prevPage);
+                AppState.currentPage = prevPage;
+                showGestureArrow('left');
+            } else if (AppState.currentPage !== 'main') {
+                navigateTo('main');
+                showGestureArrow('left');
+            }
+        }
+
+        function navigateHome() {
+            if (AppState.controlCenterOpen) {
+                toggleControlCenter(false);
+            }
+            navigateTo('main');
+            showGestureArrow('up');
+            updateGestureDisplay('home', 'Back to home');
+            homeIndicator.classList.add('active');
+            setTimeout(() => homeIndicator.classList.remove('active'), 500);
+        }
+
+        // ============ App-Specific Handlers ============
+        function openChat(chatId) {
+            const chat = chatData[chatId];
+            if (!chat) return;
+
+            document.getElementById('chat-title').textContent = chat.name;
+            const messagesEl = document.getElementById('chat-messages');
+            messagesEl.innerHTML = chat.messages.map(m =>
+                `<div class="chat-bubble ${m.sent ? 'sent' : 'received'}">${m.text}</div>`
+            ).join('');
+
+            navigateTo('chat');
+        }
+
+        function openPhoto(index) {
+            AppState.currentPhotoIndex = index;
+            document.getElementById('photo-full').textContent = photos[index];
+            navigateTo('photo-viewer');
+        }
+
+        function navigatePhoto(dir) {
+            if (dir === 'next') {
+                AppState.currentPhotoIndex = (AppState.currentPhotoIndex + 1) % photos.length;
+            } else {
+                AppState.currentPhotoIndex = (AppState.currentPhotoIndex - 1 + photos.length) % photos.length;
+            }
+            document.getElementById('photo-full').textContent = photos[AppState.currentPhotoIndex];
+            showGestureArrow(dir === 'next' ? 'right' : 'left');
+        }
+
+        function togglePlay() {
+            AppState.isPlaying = !AppState.isPlaying;
+            document.getElementById('play-btn').textContent = AppState.isPlaying ? '⏸' : '▶';
+        }
+
+        function changeSong(index) {
+            AppState.currentSong = index;
+            const song = songs[index];
+            document.getElementById('current-song').textContent = song.title;
+            document.querySelector('.song-artist').textContent = song.artist;
+            document.querySelectorAll('.playlist-item').forEach((el, i) => {
+                el.classList.toggle('active', i === index);
+            });
+        }
+
+        function nextSong() {
+            changeSong((AppState.currentSong + 1) % songs.length);
+        }
+
+        function prevSong() {
+            changeSong((AppState.currentSong - 1 + songs.length) % songs.length);
+        }
+
+        // ============ Context Menu ============
+        function showContextMenu(x, y, items) {
+            let menu = document.getElementById('context-menu');
+            if (!menu) {
+                menu = document.createElement('div');
+                menu.id = 'context-menu';
+                menu.className = 'context-menu';
+                phoneScreen.appendChild(menu);
+            }
+
+            const rect = phoneScreen.getBoundingClientRect();
+            menu.innerHTML = items.map(item =>
+                item === 'divider'
+                    ? '<div class="context-menu-divider"></div>'
+                    : `<div class="context-menu-item ${item.danger ? 'danger' : ''}" data-action="${item.action}">${item.icon} ${item.label}</div>`
+            ).join('');
+
+            menu.style.left = Math.min(x - rect.left, rect.width - 200) + 'px';
+            menu.style.top = Math.min(y - rect.top, rect.height - 150) + 'px';
+            menu.classList.add('visible');
+            AppState.contextMenuVisible = true;
+        }
+
+        function hideContextMenu() {
+            const menu = document.getElementById('context-menu');
+            if (menu) menu.classList.remove('visible');
+            AppState.contextMenuVisible = false;
+        }
+
+        // ============ Toggle Switches ============
+        document.querySelectorAll('.toggle-switch').forEach(toggle => {
+            toggle.addEventListener('click', () => toggle.classList.toggle('on'));
+        });
+
+        document.querySelectorAll('.cc-tile').forEach(tile => {
+            tile.addEventListener('click', () => tile.classList.toggle('active'));
+        });
+
+        // ============ Gesture Events ============
+        // Tune gesture config for better UX
+        function tuneGestures() {
+            if (typeof GestureController !== 'undefined') {
+                GestureController.setConfig('LONG_PRESS_DURATION', 1000); // Faster long press
+                GestureController.setConfig('TAP_MAX_MOVEMENT', 50);      // More tolerance for jitter
+                GestureController.setConfig('SCROLL_THRESHOLD', 20);      // Less sensitive scroll
+            }
+        }
+
+        GestureController.on('gestureStart', (data) => {
+            tuneGestures(); // Ensure config is applied
+
+            gestureStartX = data.x;
+            gestureStartY = data.y;
+            updateGestureDisplay('touching', 'Detecting...');
+            showTouchIndicator(data.x, data.y);
+            document.getElementById('mouth-status').classList.add('active');
+
+            const edge = getEdgeZone(data.x, data.y);
+            showEdgeHint(edge);
+
+            // Sticky Slider Detection
+            const el = document.elementFromPoint(data.x, data.y);
+            if (el) {
+                // Slider
+                if (el.tagName === 'INPUT' && el.type === 'range') {
+                    AppState.activeSlider = el;
+                    AppState.sliderStartValue = parseInt(el.value);
+                    AppState.sliderStartX = data.x;
+                    touchIndicator.classList.add('slider-active');
+                    updateGestureDisplay('touching', 'Adjusting slider...');
+                }
+                // Long Press Targets (Chat bubbles, Photos, Input)
+                else {
+                    const target = el.closest('.chat-bubble') || el.closest('.photo-item') || el.closest('.photo-full') || el.closest('.chat-input');
+                    if (target) {
+                        AppState.pressingElement = target;
+                        target.classList.add('pressing');
+                    }
+                }
+            }
+        });
+
+        GestureController.on('gestureUpdate', (data) => {
+            showTouchIndicator(data.x, data.y, data.gesture === 'scroll' ? 'scroll' : 'default');
+
+            // Check drift for pressing element
+            if (AppState.pressingElement) {
+                const dist = Math.hypot(data.x - gestureStartX, data.y - gestureStartY);
+                if (dist > 60) { // Cancel press if moved > 60px
+                    AppState.pressingElement.classList.remove('pressing');
+                    AppState.pressingElement = null;
+                }
+            }
+
+            // Handle Sticky Slider
+            if (AppState.activeSlider) {
+                // Ignore Y movement, only map X delta to value change
+                const deltaX = data.x - AppState.sliderStartX;
+                const sensitivity = 0.5; // Adjust sensitivity
+                let newValue = AppState.sliderStartValue + (deltaX * sensitivity);
+
+                // Clamp value
+                const min = parseInt(AppState.activeSlider.min) || 0;
+                const max = parseInt(AppState.activeSlider.max) || 100;
+                newValue = Math.max(min, Math.min(max, newValue));
+
+                AppState.activeSlider.value = newValue;
+                updateGestureDisplay('touching', `Value: ${Math.round(newValue)}`);
+                return; // precise control, skip other gestures
+            }
+
+            if (data.gesture === 'scroll') {
+                updateGestureDisplay('scroll', data.deltaY > 0 ? 'Down' : 'Up');
+            }
+
+            // Edge zone visual feedback
+            const edge = getEdgeZone(gestureStartX, gestureStartY);
+            if (edge === 'bottom' && data.deltaY < -50) {
+                showEdgeHint('bottom');
+            } else if (edge === 'top' && data.deltaY > 50) {
+                showEdgeHint('top');
+            }
+        });
+
+        GestureController.on('gestureEnd', () => {
+            hideTouchIndicator();
+            // hideContextMenu(); // Don't hide menu on release!
+            showEdgeHint(null);
+            document.getElementById('mouth-status').classList.remove('active');
+            touchIndicator.classList.remove('slider-active'); // Reset visual feedback
+
+            // Cleanup pressing state
+            if (AppState.pressingElement) {
+                AppState.pressingElement.classList.remove('pressing');
+                AppState.pressingElement = null;
+            }
+
+            if (AppState.activeSlider) {
+                AppState.activeSlider = null; // Release slider
+                setTimeout(() => updateGestureDisplay('idle', 'Slider set'), 500);
+            } else {
+                setTimeout(() => updateGestureDisplay('idle', 'Open mouth to start'), 500);
+            }
+
+            edgeSwipeActive = false;
+        });
+
+        GestureController.on('tap', (data) => {
+            const el = document.elementFromPoint(data.x, data.y);
+            if (!el) return;
+
+            // Priority: Context Menu Interaction
+            if (AppState.contextMenuVisible) {
+                const menuItem = el.closest('.context-menu-item');
+                if (menuItem) {
+                    const action = menuItem.dataset.action;
+                    updateGestureDisplay('tap', `Action: ${action}`);
+
+                    // Handle Actions
+                    if (action === 'copy' && AppState.lastLongPressedElement) {
+                        AppState.clipboardContent = AppState.lastLongPressedElement.textContent;
+                        updateGestureDisplay('tap', 'Copied to clipboard!');
+                    } else if (action === 'paste') {
+                        if (AppState.clipboardContent) {
+                            const chatInput = document.getElementById('chat-input');
+                            if (chatInput) {
+                                chatInput.value += (chatInput.value ? ' ' : '') + AppState.clipboardContent;
+                                updateGestureDisplay('tap', 'Pasted!');
+                            }
+                        } else {
+                            updateGestureDisplay('tap', 'Clipboard empty');
+                        }
+                    }
+
+                    // Visual feedback
+                    menuItem.style.background = 'rgba(255, 255, 255, 0.3)';
+                    setTimeout(() => hideContextMenu(), 200);
+                } else {
+                    // Click outside to dismiss
+                    hideContextMenu();
+                }
+                return; // Stop other interactions while menu is open
+            }
+
+            hideContextMenu(); // Safety cleanup
+            updateGestureDisplay('tap', 'Selected!');
+
+            // Card tap
+            const card = el.closest('.card');
+            if (card && card.dataset.page) {
+                card.classList.add('triggered');
+                setTimeout(() => card.classList.remove('triggered'), 300);
+                setTimeout(() => navigateTo(card.dataset.page), 300);
+                return;
+            }
+
+            // Back button tap
+            if (el.hasAttribute('data-back') || el.closest('[data-back]')) {
+                navigateBack();
+                return;
+            }
+
+            // Music controls
+            const musicBtn = el.closest('.music-btn');
+            if (musicBtn) {
+                const action = musicBtn.dataset.action;
+                if (action === 'play') togglePlay();
+                else if (action === 'next') nextSong();
+                else if (action === 'prev') prevSong();
+                return;
+            }
+
+            // Playlist item
+            const playlistItem = el.closest('.playlist-item');
+            if (playlistItem) {
+                const songIndex = parseInt(playlistItem.dataset.song) - 1;
+                changeSong(songIndex);
+                return;
+            }
+
+            // Conversation tap
+            const conversation = el.closest('.conversation-item');
+            if (conversation) {
+                openChat(conversation.dataset.chat);
+                return;
+            }
+
+            // Photo tap
+            const photo = el.closest('.photo-item');
+            if (photo) {
+                openPhoto(parseInt(photo.dataset.photo));
+                return;
+            }
+
+            // Photo nav
+            const photoNav = el.closest('.photo-nav');
+            if (photoNav) {
+                navigatePhoto(photoNav.dataset.nav);
+                return;
+            }
+
+            // Control Center tiles
+            const ccTile = el.closest('.cc-tile');
+            if (ccTile) {
+                ccTile.classList.toggle('active');
+                return;
+            }
+
+            // Toggle switches
+            const toggle = el.closest('.toggle-switch');
+            if (toggle) {
+                toggle.classList.toggle('on');
+                return;
+            }
+        });
+
+        GestureController.on('scroll', (data) => {
+            if (AppState.controlCenterOpen) {
+                if (data.deltaY < -30) toggleControlCenter(false);
+                return;
+            }
+
+            const currentContent = document.querySelector('#page-' + AppState.currentPage + ' .app-content');
+            if (currentContent) {
+                currentContent.scrollTop += data.deltaY;
+            } else if (AppState.currentPage === 'main') {
+                mainScroll.scrollTop += data.deltaY;
+            }
+        });
+
+        GestureController.on('swipeLeft', () => {
+            if (AppState.currentPage === 'photo-viewer') {
+                navigatePhoto('next');
+            } else {
+                updateGestureDisplay('swipeLeft', 'Going back!');
+                navigateBack();
+            }
+        });
+
+        GestureController.on('swipeRight', () => {
+            if (AppState.currentPage === 'photo-viewer') {
+                navigatePhoto('prev');
+            } else {
+                // Edge swipe from left = back
+                const edge = getEdgeZone(gestureStartX, gestureStartY);
+                if (edge === 'left') {
+                    navigateBack();
+                }
+            }
+        });
+
+        GestureController.on('longPress', (data) => {
+            updateGestureDisplay('longPress', 'Long press!');
+            const el = document.elementFromPoint(data.x, data.y);
+            if (!el) return;
+
+            // Chat bubble long press
+            const bubble = el.closest('.chat-bubble');
+            if (bubble) {
+                // Save target for potential copy
+                AppState.lastLongPressedElement = bubble;
+                showContextMenu(data.x, data.y, [
+                    { icon: '📋', label: 'Copy', action: 'copy' },
+                    { icon: '↩️', label: 'Reply', action: 'reply' },
+                    'divider',
+                    { icon: '🗑️', label: 'Delete', action: 'delete', danger: true }
+                ]);
+                return;
+            }
+
+            // Chat Input long press
+            const input = el.closest('.chat-input');
+            if (input) {
+                showContextMenu(data.x, data.y, [
+                    { icon: '📋', label: 'Paste', action: 'paste' },
+                    'divider',
+                    { icon: '⌨️', label: 'Dictate', action: 'dictate' }
+                ]);
+                return;
+            }
+
+            // Photo long press
+            const photo = el.closest('.photo-item') || el.closest('.photo-full');
+            if (photo) {
+                showContextMenu(data.x, data.y, [
+                    { icon: '📤', label: 'Share', action: 'share' },
+                    { icon: '⬇️', label: 'Save', action: 'save' },
+                    'divider',
+                    { icon: '🗑️', label: 'Delete', action: 'delete', danger: true }
+                ]);
+                return;
+            }
+        });
+
+        // ============ Edge Swipe Detection ============
+        let edgeSwipeActive = false;
+
+        GestureController.on('gestureStart', (data) => {
+            const edge = getEdgeZone(data.x, data.y);
+            edgeSwipeActive = edge === 'bottom' || edge === 'top';
+        });
+
+        GestureController.on('gestureEnd', () => {
+            if (!edgeSwipeActive) return;
+
+            const deltaY = gazePosition.y - gestureStartY;
+            const edge = getEdgeZone(gestureStartX, gestureStartY);
+
+            // Bottom edge swipe up = go home
+            if (edge === 'bottom' && deltaY < -60) {
+                navigateHome();
+            }
+            // Top edge swipe down = control center
+            else if (edge === 'top' && deltaY > 60) {
+                toggleControlCenter(true);
+                updateGestureDisplay('controlCenter', 'Settings panel');
+            }
+
+            edgeSwipeActive = false;
+        });
+
+        // ============ Head Tracking ============
+        async function startTracking() {
+            startBtn.disabled = true;
+            startBtn.textContent = '⏳ Loading...';
+            document.getElementById('head-status').classList.add('loading');
+
+            try {
+                await HeadTracker.init();
+                await HeadTracker.start();
+
+                startBtn.textContent = '✅ Tracking Active';
+                calibrateBtn.disabled = false;
+                mouthCalBtn.disabled = false;
+                dirCalBtn.disabled = false;
+                document.getElementById('head-status').classList.remove('loading');
+                document.getElementById('head-status').classList.add('active');
+                cursor.style.display = 'block';
+                AppState.isTrackingActive = true;
+
+                // Save state
+                localStorage.setItem('headTrackingActive', 'true');
+
+                HeadTracker.on('point', (x, y) => {
+                    cursor.style.left = x + 'px';
+                    cursor.style.top = y + 'px';
+                    gazePosition = { x, y };
+                    if (GestureController.isActive()) GestureController.updatePosition(x, y);
+
+                    // Hover effect
+                    document.querySelectorAll('.card').forEach(c => c.classList.remove('gaze-active'));
+                    const el = document.elementFromPoint(x, y);
+                    if (el) {
+                        const card = el.closest('.card');
+                        if (card) card.classList.add('gaze-active');
+                    }
+                });
+
+                let isMouthOpen = false;
+
+                HeadTracker.on('mouthRatio', (ratio) => {
+                    const isOpen = ratio > currentMouthThreshold;
+
+                    if (isOpen && !isMouthOpen) {
+                        isMouthOpen = true;
+                        cursor.classList.add('clicking');
+                        GestureController.startTouch(gazePosition.x, gazePosition.y);
+                        document.getElementById('mouth-status').classList.add('active');
+                    } else if (!isOpen && isMouthOpen) {
+                        isMouthOpen = false;
+                        cursor.classList.remove('clicking');
+                        GestureController.endTouch(gazePosition.x, gazePosition.y);
+                        document.getElementById('mouth-status').classList.remove('active');
+                    }
+                });
+
+                if (HeadTracker.setMouthClickEnabled) HeadTracker.setMouthClickEnabled(false);
+
+            } catch (error) {
+                console.error(error);
+                startBtn.textContent = '❌ Error';
+                startBtn.disabled = false;
+                document.getElementById('head-status').classList.remove('loading');
+                alert('Failed: ' + error.message);
+            }
+        };
+
+        startBtn.addEventListener('click', startTracking);
+
+        calibrateBtn.addEventListener('click', () => {
+            if (typeof HeadCalibration !== 'undefined') HeadCalibration.start();
+        });
+
+        mouthCalBtn.addEventListener('click', () => {
+            if (typeof MouthCalibration !== 'undefined') MouthCalibration.start();
+        });
+
+        dirCalBtn.addEventListener('click', () => {
+            if (typeof MouthDirectionCalibration !== 'undefined') MouthDirectionCalibration.start();
+        });
+
+        document.getElementById('back-btn').addEventListener('click', navigateBack);
+
+        // Click fallback for mouse testing
+        document.querySelectorAll('.card').forEach(card => {
+            card.addEventListener('click', () => {
+                if (card.dataset.page) {
+                    card.classList.add('triggered');
+                    setTimeout(() => card.classList.remove('triggered'), 300);
+                    setTimeout(() => navigateTo(card.dataset.page), 300);
+                }
+            });
+        });
+
+        // Mouse Simulation
+        document.addEventListener('mousemove', (e) => {
+            if (GestureController.isActive()) {
+                GestureController.updatePosition(e.clientX, e.clientY);
+                showTouchIndicator(e.clientX, e.clientY, GestureController.getCurrentGesture() === 'scroll' ? 'scroll' : 'default');
+            }
+            if (!AppState.isTrackingActive) gazePosition = { x: e.clientX, y: e.clientY };
+        });
+
+        document.addEventListener('mousedown', (e) => { if (e.button === 0) GestureController.startTouch(e.clientX, e.clientY); });
+        document.addEventListener('mouseup', (e) => { if (e.button === 0) GestureController.endTouch(e.clientX, e.clientY); });
+
+        // Auto-start check
+        const wasTracking = localStorage.getItem('headTrackingActive') === 'true';
+        if (wasTracking) {
+            setTimeout(startTracking, 500);
+        }
+    </script>
+</body>
+
+</html>
