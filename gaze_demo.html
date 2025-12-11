@@ -1,0 +1,800 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎯 Head Tracking + Voice Control Demo</title>
+
+    <!-- Socket.IO for Voice Phonemes -->
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            min-height: 100vh;
+            color: white;
+            overflow-x: hidden;
+        }
+
+        /* Header */
+        .header {
+            text-align: center;
+            padding: 25px 20px;
+            background: rgba(0, 0, 0, 0.3);
+        }
+
+        .header h1 {
+            font-size: 1.8em;
+            margin-bottom: 8px;
+        }
+
+        .header p {
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 14px;
+        }
+
+        /* Status Bar */
+        .status-bar {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            padding: 12px;
+            background: rgba(0, 0, 0, 0.4);
+            font-size: 13px;
+            flex-wrap: wrap;
+        }
+
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #ff4757;
+            transition: background 0.3s;
+        }
+
+        .status-dot.active {
+            background: #7bed9f;
+        }
+
+        .status-dot.loading {
+            background: #ffa502;
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.5;
+            }
+        }
+
+        /* Gaze Cursor */
+        #gaze-cursor {
+            position: fixed;
+            width: 24px;
+            height: 24px;
+            background: rgba(123, 237, 159, 0.5);
+            border: 2px solid #7bed9f;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            z-index: 9998;
+            display: none;
+            transition: left 0.05s, top 0.05s;
+            box-shadow: 0 0 15px rgba(123, 237, 159, 0.4);
+        }
+
+        #gaze-cursor.clicking {
+            background: rgba(255, 71, 87, 0.7);
+            border-color: #ff4757;
+            transform: translate(-50%, -50%) scale(1.3);
+        }
+
+        /* Camera Preview */
+        #camera-preview {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 200px;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+            z-index: 1000;
+            display: none;
+        }
+
+        #camera-preview video {
+            width: 100%;
+            transform: scaleX(-1);
+        }
+
+        #camera-preview .overlay {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 6px 10px;
+            font-size: 11px;
+            color: #7bed9f;
+        }
+
+        /* Main Content */
+        .main {
+            padding: 30px 20px;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        /* Control Panel */
+        .control-panel {
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+            margin-bottom: 25px;
+            flex-wrap: wrap;
+        }
+
+        .control-btn {
+            padding: 10px 20px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            background: rgba(255, 255, 255, 0.08);
+            color: white;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: all 0.2s;
+        }
+
+        .control-btn:hover {
+            background: rgba(255, 255, 255, 0.15);
+            transform: scale(1.02);
+        }
+
+        .control-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .control-btn.primary {
+            background: #7bed9f;
+            color: #1a1a2e;
+            border-color: #7bed9f;
+        }
+
+        .control-btn.recording {
+            background: #ff4757;
+            border-color: #ff4757;
+        }
+
+        .control-btn.toggle {
+            background: rgba(255, 165, 2, 0.2);
+            border-color: #ffa502;
+            color: #ffa502;
+        }
+
+        .control-btn.toggle.active {
+            background: #ffa502;
+            color: #1a1a2e;
+        }
+
+        /* Gaze Info */
+        .gaze-info {
+            text-align: center;
+            margin-bottom: 20px;
+            padding: 12px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 10px;
+        }
+
+        .gaze-coords {
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            color: #7bed9f;
+        }
+
+        /* Action Grid */
+        .action-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+
+        .action-card {
+            background: rgba(255, 255, 255, 0.06);
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
+            padding: 30px 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            position: relative;
+        }
+
+        .action-card:hover {
+            background: rgba(255, 255, 255, 0.1);
+            transform: translateY(-3px);
+        }
+
+        .action-card.gaze-hover {
+            border-color: #7bed9f;
+            box-shadow: 0 0 30px rgba(123, 237, 159, 0.25);
+        }
+
+        .action-card.triggered {
+            background: #7bed9f !important;
+            transform: scale(0.95);
+        }
+
+        .action-card.triggered * {
+            color: #1a1a2e !important;
+        }
+
+        .action-icon {
+            font-size: 36px;
+            margin-bottom: 10px;
+        }
+
+        .action-label {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 6px;
+        }
+
+        .action-hint {
+            font-size: 11px;
+            color: rgba(255, 255, 255, 0.4);
+        }
+
+        /* Dwell Progress Ring */
+        .dwell-ring {
+            position: absolute;
+            inset: 4px;
+            border: 3px solid transparent;
+            border-radius: 14px;
+            pointer-events: none;
+        }
+
+        .action-card.dwelling .dwell-ring {
+            border-color: #7bed9f;
+            animation: dwell-fill 3s linear forwards;
+        }
+
+        @keyframes dwell-fill {
+            0% {
+                clip-path: polygon(50% 0%, 50% 0%, 50% 50%, 50% 50%);
+            }
+
+            25% {
+                clip-path: polygon(50% 0%, 100% 0%, 100% 50%, 50% 50%);
+            }
+
+            50% {
+                clip-path: polygon(50% 0%, 100% 0%, 100% 100%, 50% 50%);
+            }
+
+            75% {
+                clip-path: polygon(50% 0%, 100% 0%, 100% 100%, 0% 100%, 50% 50%);
+            }
+
+            100% {
+                clip-path: polygon(50% 0%, 100% 0%, 100% 100%, 0% 100%, 0% 0%);
+            }
+        }
+
+        /* Phoneme Display */
+        .phoneme-display {
+            background: rgba(0, 0, 0, 0.4);
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .phoneme-label {
+            font-size: 11px;
+            color: rgba(255, 255, 255, 0.4);
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .phoneme-stream {
+            font-family: 'Courier New', monospace;
+            font-size: 16px;
+            color: #7bed9f;
+            min-height: 25px;
+        }
+
+        .phoneme-tag {
+            background: rgba(123, 237, 159, 0.12);
+            border: 1px solid rgba(123, 237, 159, 0.3);
+            padding: 3px 8px;
+            border-radius: 5px;
+            margin: 0 3px;
+            display: inline-block;
+        }
+
+        /* Shortcuts Legend */
+        .shortcuts-legend {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-top: 15px;
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.5);
+            flex-wrap: wrap;
+        }
+
+        .shortcut-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .shortcut-key {
+            background: rgba(123, 237, 159, 0.2);
+            color: #7bed9f;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 11px;
+        }
+
+        /* Instructions */
+        .instructions {
+            text-align: center;
+            padding: 20px;
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 13px;
+            line-height: 1.7;
+        }
+
+        .instructions kbd {
+            background: rgba(255, 255, 255, 0.15);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: monospace;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Gaze Cursor -->
+    <div id="gaze-cursor"></div>
+
+    <!-- Camera Preview -->
+    <div id="camera-preview">
+        <video id="preview-video" autoplay playsinline muted></video>
+        <div class="overlay" id="preview-overlay">Mouth: --</div>
+    </div>
+
+    <div class="header">
+        <h1>🎯 Head Tracking + Voice Control</h1>
+        <p>Human.js 기반 머리 움직임 마우스 제어 • 입 벌림 클릭 • 음성 Phoneme 제어</p>
+    </div>
+
+    <div class="status-bar">
+        <div class="status-item">
+            <span class="status-dot" id="head-status"></span>
+            <span id="head-status-text">Head Tracking: Off</span>
+        </div>
+        <div class="status-item">
+            <span class="status-dot" id="voice-status"></span>
+            <span>Voice Input</span>
+        </div>
+        <div class="status-item">
+            <span class="status-dot" id="mouth-status"></span>
+            <span id="mouth-status-text">Mouth Click: Off</span>
+        </div>
+    </div>
+
+    <div class="main">
+        <!-- Control Panel -->
+        <div class="control-panel">
+            <button class="control-btn primary" id="start-btn">🎯 Start Head Tracking</button>
+            <button class="control-btn" id="calibrate-btn" disabled>⚙️ Calibrate (Alt+H)</button>
+            <button class="control-btn" id="mouth-cal-btn" disabled>👄 Mouth Cal (Alt+M)</button>
+            <button class="control-btn toggle" id="mouth-toggle-btn" disabled>👄 Mouth Click: Off</button>
+            <button class="control-btn" id="mic-btn">🎤 Start Voice</button>
+            <button class="control-btn toggle" id="preview-btn">📷 Preview: Off</button>
+            <button class="control-btn" onclick="location.href='smartphone_demo.html'"
+                style="background: linear-gradient(90deg, #667eea, #764ba2); border: none;">📱 Smartphone Demo</button>
+        </div>
+
+        <!-- Gaze Info -->
+        <div class="gaze-info">
+            <div class="gaze-coords">
+                Position: <span id="gaze-x">---</span>, <span id="gaze-y">---</span>
+                <span id="mouth-ratio" style="margin-left: 20px; color: #ffa502;">Mouth: --</span>
+            </div>
+        </div>
+
+        <!-- Action Cards -->
+        <div class="action-grid">
+            <div class="action-card" id="card-select" data-action="select" data-phoneme="AY" data-dwell="true">
+                <div class="dwell-ring"></div>
+                <div class="action-icon">✅</div>
+                <div class="action-label">Select</div>
+                <div class="action-hint">⏱️ 3초 응시 • 입 벌림 • "AY" 발음</div>
+            </div>
+
+            <div class="action-card" id="card-back" data-action="back" data-phoneme="AW">
+                <div class="dwell-ring"></div>
+                <div class="action-icon">↩️</div>
+                <div class="action-label">Back</div>
+                <div class="action-hint">입 벌림 • "AW" 발음</div>
+            </div>
+
+            <div class="action-card" id="card-scroll" data-action="scroll" data-phoneme="UW">
+                <div class="dwell-ring"></div>
+                <div class="action-icon">⬇️</div>
+                <div class="action-label">Scroll</div>
+                <div class="action-hint">입 벌림 • "UW" 발음</div>
+            </div>
+
+            <div class="action-card" id="card-home" data-action="home" data-phoneme="Y">
+                <div class="dwell-ring"></div>
+                <div class="action-icon">🏠</div>
+                <div class="action-label">Home</div>
+                <div class="action-hint">입 벌림 • "Y" 발음</div>
+            </div>
+        </div>
+
+        <!-- Phoneme Display -->
+        <div class="phoneme-display">
+            <div class="phoneme-label">Live Phoneme Stream</div>
+            <div class="phoneme-stream" id="phoneme-stream"></div>
+
+            <div class="shortcuts-legend">
+                <div class="shortcut-item"><span class="shortcut-key">AY</span> Select</div>
+                <div class="shortcut-item"><span class="shortcut-key">AW</span> Back</div>
+                <div class="shortcut-item"><span class="shortcut-key">UW</span> Scroll</div>
+                <div class="shortcut-item"><span class="shortcut-key">Y</span> Home</div>
+            </div>
+        </div>
+
+        <div class="instructions">
+            <p>🎯 <strong>Head Tracking:</strong> 머리를 움직여 커서를 제어합니다. <kbd>Alt+H</kbd>로 캘리브레이션.</p>
+            <p>👄 <strong>Mouth Click:</strong> 입을 벌려서 클릭! <kbd>Alt+M</kbd>으로 캘리브레이션.</p>
+            <p>🎤 <strong>Voice:</strong> 특정 Phoneme을 발음하여 액션을 트리거합니다.</p>
+        </div>
+    </div>
+
+    <!-- Head Tracker & Calibration Modules -->
+    <script src="head_calibration.js?v=2"></script>
+    <script src="mouth_calibration.js?v=2"></script>
+
+    <script type="module">
+        import HeadTracker from './head_tracker.js?v=2';
+
+        // ============ State ============
+        const CONFIG = {
+            DWELL_TIME: 3000,
+            GAZE_TOLERANCE: 30
+        };
+
+        let activeCard = null;
+        let dwellTimer = null;
+        let isPreviewOn = false;
+
+        // ============ Elements ============
+        const cursor = document.getElementById('gaze-cursor');
+        const startBtn = document.getElementById('start-btn');
+        const calibrateBtn = document.getElementById('calibrate-btn');
+        const mouthCalBtn = document.getElementById('mouth-cal-btn');
+        const mouthToggleBtn = document.getElementById('mouth-toggle-btn');
+        const micBtn = document.getElementById('mic-btn');
+        const previewBtn = document.getElementById('preview-btn');
+        const headStatus = document.getElementById('head-status');
+        const headStatusText = document.getElementById('head-status-text');
+        const voiceStatus = document.getElementById('voice-status');
+        const mouthStatus = document.getElementById('mouth-status');
+        const mouthStatusText = document.getElementById('mouth-status-text');
+        const gazeX = document.getElementById('gaze-x');
+        const gazeY = document.getElementById('gaze-y');
+        const mouthRatioEl = document.getElementById('mouth-ratio');
+        const previewContainer = document.getElementById('camera-preview');
+        const previewVideo = document.getElementById('preview-video');
+        const previewOverlay = document.getElementById('preview-overlay');
+
+        // ============ Head Tracking ============
+        startBtn.addEventListener('click', async () => {
+            startBtn.disabled = true;
+            startBtn.textContent = '⏳ Loading...';
+            headStatus.classList.add('loading');
+            headStatusText.textContent = 'Loading models...';
+
+            try {
+                await HeadTracker.init();
+                await HeadTracker.start();
+
+                startBtn.textContent = '✅ Tracking Active';
+                startBtn.classList.add('primary');
+                calibrateBtn.disabled = false;
+                mouthCalBtn.disabled = false;
+                mouthToggleBtn.disabled = false;
+                headStatus.classList.remove('loading');
+                headStatus.classList.add('active');
+                headStatusText.textContent = 'Head Tracking: On';
+                cursor.style.display = 'block';
+
+                // Save tracking state for cross-page persistence
+                localStorage.setItem('headTrackingActive', 'true');
+
+                // Listen to point events
+                HeadTracker.on('point', (x, y, data) => {
+                    cursor.style.left = x + 'px';
+                    cursor.style.top = y + 'px';
+                    gazeX.textContent = Math.round(x);
+                    gazeY.textContent = Math.round(y);
+                    checkGazeTargets(x, y);
+
+                    // Send gaze data to server
+                    if (socket && socket.connected) {
+                        socket.emit('gaze_data', { x: x, y: y, timestamp: Date.now() });
+                    }
+                });
+
+                // Listen to mouth ratio
+                HeadTracker.on('mouthRatio', (ratio) => {
+                    mouthRatioEl.textContent = `Mouth: ${(ratio * 100).toFixed(0)}%`;
+                    previewOverlay.textContent = `Mouth: ${(ratio * 100).toFixed(0)}%`;
+                });
+
+                // Listen to mouth clicks
+                HeadTracker.on('mouthClick', (data) => {
+                    cursor.classList.add('clicking');
+                    setTimeout(() => cursor.classList.remove('clicking'), 200);
+
+                    // Trigger action on hovered card
+                    if (activeCard) {
+                        triggerAction(activeCard.dataset.action, 'mouth');
+                    }
+
+                    // Send mouth click to server
+                    if (socket && socket.connected) {
+                        socket.emit('mouth_click', { timestamp: Date.now() });
+                    }
+                });
+
+                // Update mouth click status
+                updateMouthClickStatus();
+
+            } catch (error) {
+                console.error('Failed to start head tracking:', error);
+                startBtn.textContent = '❌ Error: ' + error.message;
+                startBtn.disabled = false;
+                headStatus.classList.remove('loading');
+                headStatusText.textContent = 'Error';
+                alert('Head tracking 시작 실패: ' + error.message);
+            }
+        });
+
+        calibrateBtn.addEventListener('click', () => {
+            if (typeof HeadCalibration !== 'undefined') {
+                HeadCalibration.start();
+            }
+        });
+
+        mouthCalBtn.addEventListener('click', () => {
+            if (typeof MouthCalibration !== 'undefined') {
+                MouthCalibration.start();
+            }
+        });
+
+        mouthToggleBtn.addEventListener('click', () => {
+            const enabled = !HeadTracker.getMouthClickEnabled();
+            HeadTracker.setMouthClickEnabled(enabled);
+            updateMouthClickStatus();
+        });
+
+        function updateMouthClickStatus() {
+            const enabled = HeadTracker.getMouthClickEnabled();
+            mouthToggleBtn.textContent = `👄 Mouth Click: ${enabled ? 'On' : 'Off'}`;
+            mouthToggleBtn.classList.toggle('active', enabled);
+            mouthStatus.classList.toggle('active', enabled);
+            mouthStatusText.textContent = `Mouth Click: ${enabled ? 'On' : 'Off'}`;
+        }
+
+        // Preview toggle
+        previewBtn.addEventListener('click', async () => {
+            isPreviewOn = !isPreviewOn;
+            previewBtn.textContent = `📷 Preview: ${isPreviewOn ? 'On' : 'Off'}`;
+            previewBtn.classList.toggle('active', isPreviewOn);
+            previewContainer.style.display = isPreviewOn ? 'block' : 'none';
+
+            if (isPreviewOn) {
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                    previewVideo.srcObject = stream;
+                } catch (e) {
+                    console.warn('Preview failed:', e);
+                }
+            } else {
+                if (previewVideo.srcObject) {
+                    previewVideo.srcObject.getTracks().forEach(t => t.stop());
+                    previewVideo.srcObject = null;
+                }
+            }
+        });
+
+        // ============ Gaze Targets (Dwell Click) ============
+        function checkGazeTargets(x, y) {
+            const cards = document.querySelectorAll('.action-card');
+            let foundCard = null;
+
+            cards.forEach(card => {
+                const rect = card.getBoundingClientRect();
+                const inBounds = (
+                    x >= rect.left - CONFIG.GAZE_TOLERANCE &&
+                    x <= rect.right + CONFIG.GAZE_TOLERANCE &&
+                    y >= rect.top - CONFIG.GAZE_TOLERANCE &&
+                    y <= rect.bottom + CONFIG.GAZE_TOLERANCE
+                );
+
+                if (inBounds) {
+                    foundCard = card;
+                }
+                card.classList.remove('gaze-hover', 'dwelling');
+            });
+
+            if (foundCard !== activeCard) {
+                if (dwellTimer) {
+                    clearTimeout(dwellTimer);
+                    dwellTimer = null;
+                }
+
+                activeCard = foundCard;
+
+                if (foundCard) {
+                    foundCard.classList.add('gaze-hover');
+                    startDwell(foundCard);
+                }
+            }
+        }
+
+        function startDwell(card) {
+            // Only apply dwell to cards with data-dwell="true"
+            if (card.dataset.dwell !== 'true') {
+                return;
+            }
+
+            card.classList.add('dwelling');
+
+            dwellTimer = setTimeout(() => {
+                triggerAction(card.dataset.action, 'dwell');
+                card.classList.remove('dwelling');
+            }, CONFIG.DWELL_TIME);
+        }
+
+        function triggerAction(action, source) {
+            console.log(`🎯 Action: ${action} (via ${source})`);
+
+            const card = document.getElementById(`card-${action}`);
+            if (!card) return;
+
+            // Visual feedback
+            card.classList.add('triggered');
+            setTimeout(() => card.classList.remove('triggered', 'gaze-hover', 'dwelling'), 400);
+
+            // Execute action
+            switch (action) {
+                case 'select':
+                    console.log('Selected!');
+                    break;
+                case 'back':
+                    console.log('Going back...');
+                    break;
+                case 'scroll':
+                    window.scrollBy({ top: 200, behavior: 'smooth' });
+                    break;
+                case 'home':
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                    break;
+            }
+        }
+
+        // ============ Voice Control ============
+        let socket = null;
+        let isVoiceActive = false;
+        let audioContext, processor, source;
+
+        const voiceShortcuts = { 'AY': 'select', 'AW': 'back', 'UW': 'scroll', 'Y': 'home' };
+
+        micBtn.addEventListener('click', async () => {
+            if (isVoiceActive) {
+                stopVoice();
+            } else {
+                await startVoice();
+            }
+        });
+
+        async function startVoice() {
+            try {
+                // Connect to server
+                socket = io('http://localhost:5003');
+
+                socket.on('connect', () => {
+                    console.log('Voice socket connected');
+                    voiceStatus.classList.add('active');
+                });
+
+                socket.on('disconnect', () => {
+                    voiceStatus.classList.remove('active');
+                });
+
+                socket.on('result', (data) => {
+                    if (data.phonemes) {
+                        const html = data.phonemes.split(' ').map(p =>
+                            `<span class="phoneme-tag">${p}</span>`
+                        ).join('');
+                        document.getElementById('phoneme-stream').innerHTML = html;
+
+                        // Check shortcuts
+                        const phonemes = data.phonemes.split(' ');
+                        phonemes.slice(-2).forEach(p => {
+                            if (voiceShortcuts[p]) {
+                                triggerAction(voiceShortcuts[p], 'voice');
+                            }
+                        });
+                    }
+                });
+
+                // Start audio capture
+                audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                source = audioContext.createMediaStreamSource(stream);
+                processor = audioContext.createScriptProcessor(16384, 1, 1);
+
+                source.connect(processor);
+                processor.connect(audioContext.destination);
+
+                processor.onaudioprocess = (e) => {
+                    if (!isVoiceActive || !socket) return;
+                    socket.emit('audio_raw', e.inputBuffer.getChannelData(0).buffer);
+                };
+
+                isVoiceActive = true;
+                micBtn.textContent = '⏹ Stop Voice';
+                micBtn.classList.add('recording');
+
+            } catch (err) {
+                alert('Voice 시작 실패: ' + err.message);
+            }
+        }
+
+        function stopVoice() {
+            isVoiceActive = false;
+            if (source) source.disconnect();
+            if (processor) processor.disconnect();
+            if (audioContext) audioContext.close();
+            if (socket) socket.disconnect();
+
+            micBtn.textContent = '🎤 Start Voice';
+            micBtn.classList.remove('recording');
+            voiceStatus.classList.remove('active');
+        }
+    </script>
+</body>
+
+</html>
