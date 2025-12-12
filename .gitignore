@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+.DS_Store
+*.pt
+*.bin
+*.h5
+*.hdf5
+*.mat
+*.npy
+server/models/
+server/sherpa_model/
