@@ -196,8 +196,9 @@ from g2p_en import G2p
 g2p = G2p()
 
 # whisper.cpp stream configuration
-WHISPER_CPP_PATH = "/Users/chayoonmin/Downloads/whisper.cpp"
-WHISPER_MODEL = f"{WHISPER_CPP_PATH}/models/ggml-base.en-q5_1.bin"
+# whisper.cpp stream configuration
+WHISPER_CPP_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "whisper")
+WHISPER_MODEL = os.path.join(WHISPER_CPP_PATH, "models", "ggml-base.en-q5_1.bin")
 WHISPER_STREAM_CMD = [
     f"{WHISPER_CPP_PATH}/stream",
     "-m", WHISPER_MODEL,

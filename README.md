@@ -18,15 +18,14 @@ A web-based smartphone accessibility demo controlled by head tracking, gaze, and
 The `server/` directory contains the Python backend for voice processing and phoneme decoding.
 
 ### ⚠️ Missing Model Files
-Due to GitHub's file size limits (100MB+), the following model files are **NOT included** in this repository. You must manually download/place them for the server to function correctly:
+The **Phoneme Decoder Model** (`v4_model_1_final.pt`, ~1.4GB) is too large for GitHub and is **NOT included**.
+1.  **Download/Locate**: `v4_model_1_final.pt`
+2.  **Placement**: Put it inside the `server/` directory.
 
-1.  **Phoneme Decoder Model** (`v4_model_1_final.pt`)
-    *   **Placement**: Put this file inside the `server/` directory.
-    *   **Usage**: Required for `CPUPhonemeDecoder` to load the trained model.
-
-2.  **Whisper Model** (`ggml-base.en-q5_1.bin`)
-    *   **Placement**: External `whisper.cpp` directory (as configured in `api_server.py`).
-    *   **Note**: The server script currently points to a local path. You may need to update `WHISPER_CPP_PATH` in `server/api_server.py`.
+### ✅ Included Components
+*   **Whisper Model**: `ggml-base.en-q5_1.bin` is included in `server/whisper/models/`.
+*   **Whisper Binary**: A macOS (Apple Silicon) compatible `stream` binary is included in `server/whisper/`.
+    *   *Note for Non-Mac users*: You may need to recompile `whisper.cpp` and replace the `stream` binary.
 
 ### Running the Server
 1.  Navigate to the root directory.
