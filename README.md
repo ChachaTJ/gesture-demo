@@ -46,4 +46,4 @@ The **Phoneme Decoder Model** (`v4_model_1_final.pt`, ~1.4GB) is too large for G
 ### Inspiration & Core Logic
 *   **Nutshell**: Hands-free browsing extension (Chrome Built-in AI Hackathon).
     *   The head tracking cursor implementation, dwell interactions, and calibration logic in this demo are adapted from the **Nutshell** project.
-    *   *(Original repository URL not available)*
+    *   **Repository**: [https://github.com/tanhanwei/Nutshell](https://github.com/tanhanwei/Nutshell)
