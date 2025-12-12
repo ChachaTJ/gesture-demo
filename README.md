@@ -42,3 +42,8 @@ The **Phoneme Decoder Model** (`v4_model_1_final.pt`, ~1.4GB) is too large for G
 ### WebGPU Head Tracking
 *   **Library**: [Human.js](https://github.com/vladmandic/human) by Vladimir Mandic.
 *   **Description**: This project utilizes `human.js` for high-performance, WebGPU-accelerated face and iris tracking directly in the browser. It enables the precise head cursor and gaze interactions without server latency.
+
+### Inspiration & Core Logic
+*   **Nutshell**: Hands-free browsing extension (Chrome Built-in AI Hackathon).
+    *   The head tracking cursor implementation, dwell interactions, and calibration logic in this demo are adapted from the **Nutshell** project.
+    *   *(Original repository URL not available)*
